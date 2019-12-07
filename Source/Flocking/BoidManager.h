@@ -24,7 +24,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		int boidCount = 300;
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		int numViewDirections = 20;
+		int numViewDirections = 50;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float maxSpeed = 500.0f;
