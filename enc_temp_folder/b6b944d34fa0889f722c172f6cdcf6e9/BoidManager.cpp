@@ -76,16 +76,18 @@ void ABoidManager::Tick(float DeltaTime)
 
 		if (target != nullptr) {
 			FVector offsetToTarget = (target->GetActorLocation() - boids[i]->position);
-			boids[i]->acceleration = GetForceToDirection(offsetToTarget, i) * targetWeight;
+			boids[i]->acceleration = Move(offsetToTarget, i) * targetWeight;
 		}
 
 		if (boids[i]->numPerceivedFlockmates != 0)
 		{
 			boids[i]->centroid /= boids[i]->numPerceivedFlockmates;
 
-			boids[i]->acceleration += GetForceToDirection(boids[i]->avgBoidDir, i) * alignmentWeight;
-			boids[i]->acceleration += GetForceToDirection(boids[i]->centroid - boids[i]->position, i) * cohesionWeight;
-			boids[i]->acceleration += GetForceToDirection(boids[i]->avgAvoidDir, i) * seperationWeight;
+			FVector offsetToFlockmatesCentre = (boids[i]->centroid - boids[i]->position);
+
+			boids[i]->acceleration += Move(boids[i]->avgBoidDir, i) * alignmentWeight;
+			boids[i]->acceleration += Move(offsetToFlockmatesCentre, i) * cohesionWeight;
+			boids[i]->acceleration += Move(boids[i]->avgAvoidDir, i) * seperationWeight;
 		}
 
 		//Draw debug lines for first 50 pts
@@ -100,7 +102,7 @@ void ABoidManager::Tick(float DeltaTime)
 
 		if (IsCloseToObject(i))
 		{
-			FVector collisionAvoidForce = GetForceToDirection(GetAvoidDir(i), i) * avoidWeight;
+			FVector collisionAvoidForce = Move(GetAvoidDir(i), i) * avoidWeight;
 			boids[i]->acceleration += collisionAvoidForce;
 		}
 
@@ -109,8 +111,10 @@ void ABoidManager::Tick(float DeltaTime)
 		boids[i]->direction = boids[i]->velocity / speed;
 		speed = FMath::Clamp(speed, minSpeed, maxSpeed);
 		boids[i]->velocity = boids[i]->direction * speed;
-		boids[i]->position += boids[i]->velocity * DeltaTime;
-		boids[i]->SetActorLocation(boids[i]->position); boids[i]->SetActorRotation(UKismetMathLibrary::FindLookAtRotation(boids[i]->position, boids[i]->position + boids[i]->direction));
+		boids[i]->SetActorLocation(boids[i]->GetActorLocation() + boids[i]->velocity * DeltaTime);
+
+		boids[i]->SetActorRotation(UKismetMathLibrary::RInterpTo(boids[i]->GetActorRotation(), UKismetMathLibrary::FindLookAtRotation(boids[i]->position, boids[i]->position + boids[i]->direction), DeltaTime, 5).Quaternion());
+		boids[i]->position = boids[i]->GetActorLocation();
 	}
 }
 
@@ -146,7 +150,7 @@ FVector ABoidManager::GetAvoidDir(int index)
 	return boids[index]->direction;
 }
 
-FVector ABoidManager::GetForceToDirection(FVector a_direction, int index)
+FVector ABoidManager::Move(FVector a_direction, int index)
 {
 	FVector direction = (a_direction.GetSafeNormal() * maxSpeed) - boids[index]->velocity;
 	return direction.GetClampedToMaxSize(maxForce);

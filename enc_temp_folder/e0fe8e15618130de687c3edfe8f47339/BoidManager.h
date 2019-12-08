@@ -84,7 +84,7 @@ public:
 
 	FVector GetAvoidDir(int index);
 
-	FVector GetForceToDirection(FVector a_direction, int index);
+	FVector Move(FVector a_direction, int index);
 
 	void CalcPoints();
 
