@@ -36,37 +36,41 @@ void ABoidManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	for (int i = 0; i < boids.Num(); i++)
+	//do this in parallel
+	ParallelFor(boids.Num(), [&](int index)
 	{
 		//compare to flock
-		boids[i]->numPerceivedFlockmates = 0;
-		boids[i]->avgBoidDir = FVector(0);
-		boids[i]->avgAvoidDir = FVector(0);
-		boids[i]->centroid = FVector(0);
+		boids[index]->numPerceivedFlockmates = 0;
+		boids[index]->avgBoidDir = FVector(0);
+		boids[index]->avgAvoidDir = FVector(0);
+		boids[index]->centroid = FVector(0);
 
-		for (ABoid* boid : boids)
+		for (int i = 0; i < boids.Num(); i++)
 		{
-			ABoid* currentBoid = boid;
+			ABoid* currentBoid = boids[i];
 
-			if (boids[i] != currentBoid)
+			if (boids[index] != currentBoid)
 			{
-				FVector offset = currentBoid->position - boids[i]->position;
+				FVector offset = currentBoid->position - boids[index]->position;
 				float sqrDst = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z;
 
 				if (sqrDst < viewRadius * viewRadius)
 				{
-					boids[i]->numPerceivedFlockmates++;
-					boids[i]->avgBoidDir += currentBoid->direction;
-					boids[i]->centroid += currentBoid->position;
+					boids[index]->numPerceivedFlockmates++;
+					boids[index]->avgBoidDir += currentBoid->direction;
+					boids[index]->centroid += currentBoid->position;
 
 					if (sqrDst < avoidRadius * avoidRadius)
 					{
-						boids[i]->avgAvoidDir -= offset / sqrDst;
+						boids[index]->avgAvoidDir -= offset / sqrDst;
 					}
 				}
 			}
 		}
+	}, false);
 
+	for (int i = 0; i < boids.Num(); i++)
+	{
 		//individual boids 
 		boids[i]->acceleration = FVector(0);
 
@@ -89,17 +93,11 @@ void ABoidManager::Tick(float DeltaTime)
 		//Draw debug lines for first 50 pts
 		//for (size_t x = 0; x < 50; x++)
 		//{
-		//	//rotate points
+		//	//rotate torwards forward
 		//	FTransform newTransform = boids[i]->GetTransform();
+		//	FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, points[x]);
 
-		//	//offset rotation of the cone
-		//	FQuat deltaRotate;
-
-		//	//rotate current rotation and set
-		//	FQuat finalRotation = newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0));
-		//	newTransform.SetRotation(finalRotation);
-
-		//	DrawDebugLine(GetWorld(), boids[i]->position, boids[i]->position + (UKismetMathLibrary::TransformDirection(newTransform, points[x]) * collisionCheckDistance), FColor::Magenta, false, .1f);
+		//	DrawDebugLine(GetWorld(), boids[i]->position, boids[i]->position + (viewDirection * collisionCheckDistance), FColor::Magenta, false, .1f);
 		//}
 
 		if (IsCloseToObject(i))
@@ -137,19 +135,10 @@ FVector ABoidManager::GetAvoidDir(int index)
 {
 	for (int i = 0; i < points.Num(); i++) 
 	{
-		//rotate points
-		FTransform newTransform = boids[i]->GetTransform();
-
-		//offset rotation of the cone
-		FQuat deltaRotate;
-
-		//rotate current rotation and set
-		FQuat finalRotation = newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0));
-		newTransform.SetRotation(finalRotation);
-
+		//rotate the point torwards forward
+		FTransform newTransform = boids[index]->GetTransform();
 		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, points[i]);
-		
-		//hit result
+
 		FHitResult hit;
 
 		if (!UKismetSystemLibrary::SphereTraceSingle((UObject*)GetWorld(), boids[index]->position, boids[index]->position + (viewDirection * collisionCheckDistance), boundsRadius, traceChannel, false, (TArray<AActor*>)boids, EDrawDebugTrace::None, hit, true))
@@ -182,7 +171,14 @@ void ABoidManager::CalcPoints()
 		float x = FMath::Sin(inclination) * FMath::Cos(azimuth);
 		float y = FMath::Sin(inclination) * FMath::Sin(azimuth);
 		float z = FMath::Cos(inclination);
-		points.Add(FVector(x, y, z));
+
+		//rotate torward forward like boid cone
+		FTransform newTransform;
+		FQuat deltaRotate;
+		newTransform.SetRotation(newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0)));
+		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, FVector(x,y,z));
+
+		points.Add(viewDirection);
 	}
 }
 

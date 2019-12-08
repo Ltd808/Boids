@@ -7,9 +7,6 @@ void ABoid::Init(UStaticMesh* bodyRef)
 	//set body
 	body->SetStaticMesh(bodyRef);
 
-	//set rotation to random
-	//body->SetWorldRotation(FRotator(FMath::RandRange(-180, 180), FMath::RandRange(-180, 180), FMath::RandRange(-180, 180)).Quaternion());
-
 	//store ac
 	position = GetActorLocation();
 
@@ -38,7 +35,6 @@ void ABoid::BeginPlay()
 {
 	Super::BeginPlay();
 }
-
 
 
 

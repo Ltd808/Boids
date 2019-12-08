@@ -11,6 +11,7 @@
 #include "Engine/World.h"
 #include "Boid.h"
 #include "DrawDebugHelpers.h"
+#include "Async/ParallelFor.h"
 
 #include "BoidManager.generated.h"
 
@@ -40,7 +41,7 @@ public:
 		float viewRadius = 250.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidRadius = 100.0f;
+		float avoidRadius = 200.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float boundsRadius = 25.0f;
@@ -52,7 +53,7 @@ public:
 		float avoidWeight = 10.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float seperationWeight = 10.0f;
+		float seperationWeight = 1.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float cohesionWeight = 1.0f;
