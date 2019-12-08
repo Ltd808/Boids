@@ -38,7 +38,7 @@ void ABoidManager::Tick(float DeltaTime)
 
 	for (int i = 0; i < boids.Num(); i++)
 	{
-
+		//compare to flock
 		boids[i]->numPerceivedFlockmates = 0;
 		boids[i]->avgBoidDir = FVector(0);
 		boids[i]->avgAvoidDir = FVector(0);
@@ -67,6 +67,7 @@ void ABoidManager::Tick(float DeltaTime)
 			}
 		}
 
+		//individual boids 
 		boids[i]->acceleration = FVector(0);
 
 		if (target != nullptr) {
@@ -85,10 +86,20 @@ void ABoidManager::Tick(float DeltaTime)
 			boids[i]->acceleration += Move(boids[i]->avgAvoidDir, i) * seperationWeight;
 		}
 
-		//Draw debug lines
-		//for (size_t x = 0; x < points.Num(); x++)
+		//Draw debug lines for first 50 pts
+		//for (size_t x = 0; x < 50; x++)
 		//{
-		//	DrawDebugLine(GetWorld(), boids[i]->position, boids[i]->position + (points[x] * collisionCheckDistance), FColor::Magenta, false, .1f);
+		//	//rotate points
+		//	FTransform newTransform = boids[i]->GetTransform();
+
+		//	//offset rotation of the cone
+		//	FQuat deltaRotate;
+
+		//	//rotate current rotation and set
+		//	FQuat finalRotation = newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0));
+		//	newTransform.SetRotation(finalRotation);
+
+		//	DrawDebugLine(GetWorld(), boids[i]->position, boids[i]->position + (UKismetMathLibrary::TransformDirection(newTransform, points[x]) * collisionCheckDistance), FColor::Magenta, false, .1f);
 		//}
 
 		if (IsCloseToObject(i))
@@ -124,17 +135,24 @@ bool ABoidManager::IsCloseToObject(int index)
 
 FVector ABoidManager::GetAvoidDir(int index)
 {
-	//this is bad, fix by keeping point[0] at forward dir
-	ShufflePoints(FMath::RandRange(-12345, 12345));
-
 	for (int i = 0; i < points.Num(); i++) 
 	{
-		FVector viewDirection = points[i];
+		//rotate points
+		FTransform newTransform = boids[i]->GetTransform();
 
+		//offset rotation of the cone
+		FQuat deltaRotate;
+
+		//rotate current rotation and set
+		FQuat finalRotation = newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0));
+		newTransform.SetRotation(finalRotation);
+
+		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, points[i]);
+		
 		//hit result
 		FHitResult hit;
 
-		if (!UKismetSystemLibrary::SphereTraceSingle((UObject*)GetWorld(), boids[index]->position, boids[index]->position + points[i] * collisionCheckDistance, boundsRadius, traceChannel, false, (TArray<AActor*>)boids, EDrawDebugTrace::None, hit, true))
+		if (!UKismetSystemLibrary::SphereTraceSingle((UObject*)GetWorld(), boids[index]->position, boids[index]->position + (viewDirection * collisionCheckDistance), boundsRadius, traceChannel, false, (TArray<AActor*>)boids, EDrawDebugTrace::None, hit, true))
 		{
 			return viewDirection;
 		}
@@ -155,7 +173,7 @@ void ABoidManager::CalcPoints()
 	float goldenRatio = (1 + FMath::Sqrt(5)) / 2;
 	float angleIncrement = PI * 2 * goldenRatio;
 
-	for (int i = 0; i < numViewDirections; i++) 
+	for (int i = 0; i < numViewDirections; i++)
 	{
 		float t = (float)i / numViewDirections;
 		float inclination = FMath::Acos(1 - 2 * t);
@@ -164,23 +182,10 @@ void ABoidManager::CalcPoints()
 		float x = FMath::Sin(inclination) * FMath::Cos(azimuth);
 		float y = FMath::Sin(inclination) * FMath::Sin(azimuth);
 		float z = FMath::Cos(inclination);
-		points.Add(FVector(x, z, y));
+		points.Add(FVector(x, y, z));
 	}
 }
 
-void ABoidManager::ShufflePoints(int seed)
-{
-	srand(seed);
-	int pointsCount = points.Num();
-
-	for (int i = 0; i < pointsCount; i++)
-	{
-		int index = rand() % pointsCount;
-		FVector temp = points[i];
-		points[i] = points[index];
-		points[index] = temp;
-	}
-}
 
 
 

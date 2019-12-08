@@ -8,7 +8,7 @@ void ABoid::Init(UStaticMesh* bodyRef)
 	body->SetStaticMesh(bodyRef);
 
 	//set rotation to random
-	body->SetWorldRotation(FRotator(FMath::RandRange(-180, 180), FMath::RandRange(-180, 180), FMath::RandRange(-180, 180)).Quaternion());
+	//body->SetWorldRotation(FRotator(FMath::RandRange(-180, 180), FMath::RandRange(-180, 180), FMath::RandRange(-180, 180)).Quaternion());
 
 	//store ac
 	position = GetActorLocation();
@@ -33,11 +33,12 @@ ABoid::ABoid()
 	numPerceivedFlockmates = 0;
 }
 
-
 // Called when the game starts or when spawned
 void ABoid::BeginPlay()
 {
 	Super::BeginPlay();
 }
+
+
 
 

@@ -49,10 +49,10 @@ public:
 		float collisionCheckDistance = 500.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidWeight = 1000.0f;
+		float avoidWeight = 10.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float seperationWeight = 1.0f;
+		float seperationWeight = 10.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float cohesionWeight = 1.0f;
@@ -87,8 +87,6 @@ public:
 
 	void CalcPoints();
 
-	void ShufflePoints(int seed);
-
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -96,5 +94,4 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
 };
