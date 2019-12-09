@@ -79,7 +79,7 @@ public:
 		float viewRadius = 250.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidRadius = 200.0f;
+		float avoidRadius = 100.0f;
 
 protected:
 	//Called when the game starts or when spawned
@@ -94,11 +94,11 @@ public:
 
 	//create a new thread to calculate flock variables
 	UFUNCTION(BlueprintCallable)
-		void RunFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_viewRadius, float a_avoidRadius);
+		void RunFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime);
 
 	//calculate flock variables in game thread
 	UFUNCTION(BlueprintCallable)
-		void RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidIndex, float a_viewRadius, float a_avoidRadius);
+		void RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime);
 };
 
 //==============================================================================================================================================================
@@ -108,7 +108,7 @@ class CalcFlockTask : public FNonAbandonableTask
 {
 public:
 
-	CalcFlockTask(TArray<ABoid*> boids, int boidIndex, float viewRadius, float avoidRadius);
+	CalcFlockTask(TArray<ABoid*> boids, int boidIndex, float deltaTime);
 
 	~CalcFlockTask();
 
@@ -120,9 +120,7 @@ public:
 
 	TArray<ABoid*> boids;
 
-	float viewRadius;
-
-	float avoidRadius;
+	float deltaTime;
 
 	int index;
 

@@ -64,6 +64,9 @@ public:
 
 	//awareness
 	float boundsRadius = 25.0f;
+	float viewRadius = 250.0f;
+	float avoidRadius = 100.0f;
+
 	float collisionCheckDistance = 500.0f; 
 
 protected:
@@ -77,7 +80,7 @@ public:
 	//using this so we can init the static mesh at the right time
 	void Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids, AActor* a_target, float a_avoidWeight, float a_seperationWeight,
 		float a_cohesionWeight, float a_alignmentWeight, float a_targetWeight, float a_maxSpeed, float a_minSpeed,
-		float a_maxForce, float a_boundsRadius, float a_collisionCheckDistance, int a_numViewDirections, TEnumAsByte<ETraceTypeQuery> traceChannel, TArray<FVector> points);
+		float a_maxForce, float a_boundsRadius, float a_viewRadius, float a_avoidRadius, float a_collisionCheckDistance, int a_numViewDirections, TEnumAsByte<ETraceTypeQuery> traceChannel, TArray<FVector> points);
 
 	//spherecast ahead of object to check for collisions
 	bool IsCloseToObject();

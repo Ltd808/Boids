@@ -28,7 +28,7 @@ void ABoidManager::BeginPlay()
 	//init after array in initialized so you can pass it along with everything else from the editor
 	for (int i = 0; i < boidCount; i++)
 	{
-		boids[i]->Init(bodyRef, (TArray<AActor*>)boids, target, avoidWeight, seperationWeight, cohesionWeight, alignmentWeight, targetWeight, maxSpeed, minSpeed, maxForce, boundsRadius, collisionCheckDistance, numViewDirections, traceChannel, points);
+		boids[i]->Init(bodyRef, (TArray<AActor*>)boids, target, avoidWeight, seperationWeight, cohesionWeight, alignmentWeight, targetWeight, maxSpeed, minSpeed, maxForce, boundsRadius, viewRadius, avoidRadius, collisionCheckDistance, numViewDirections, traceChannel, points);
 	}
 }
 
@@ -42,11 +42,11 @@ void ABoidManager::Tick(float DeltaTime)
 		//create threads or run on main
 		if (IsRunningOnMain) 
 		{
-			RunFlockTaskOnMain(boids, i, viewRadius, avoidRadius);
+			RunFlockTaskOnMain(boids, i, DeltaTime);
 		}
 		else
 		{
-			RunFlockTask(boids, i, viewRadius, avoidRadius);
+			RunFlockTask(boids, i, DeltaTime);
 		}
 	}
 }
@@ -77,14 +77,14 @@ void ABoidManager::CalcPoints()
 	}
 }
 
-void ABoidManager::RunFlockTask(TArray<ABoid*> a_boids, int a_boidCount, float a_viewRadius, float a_avoidRadius)
+void ABoidManager::RunFlockTask(TArray<ABoid*> a_boids, int a_boidCount, float a_deltaTime)
 {
-	(new FAutoDeleteAsyncTask<CalcFlockTask>(a_boids, a_boidCount, a_viewRadius, a_avoidRadius))->StartBackgroundTask();
+	(new FAutoDeleteAsyncTask<CalcFlockTask>(a_boids, a_boidCount, a_deltaTime))->StartBackgroundTask();
 }
 
-void ABoidManager::RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidCount, float a_viewRadius, float a_avoidRadius)
+void ABoidManager::RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidCount, float a_deltaTime)
 {
-	CalcFlockTask* task = new CalcFlockTask(a_boids, a_boidCount, a_viewRadius, a_avoidRadius);
+	CalcFlockTask* task = new CalcFlockTask(a_boids, a_boidCount, a_deltaTime);
 
 	task->DoWorkMain();
 
@@ -94,12 +94,11 @@ void ABoidManager::RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidCount, f
 //==============================================================================================================================================================
 //threading
 
-CalcFlockTask::CalcFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_viewRadius, float a_avoidRadius)
+CalcFlockTask::CalcFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime)
 {
 	boids = a_boids;
 	index = a_boidIndex;
-	viewRadius = a_viewRadius;
-	avoidRadius = a_avoidRadius;
+	deltaTime = a_deltaTime;
 }
 
 CalcFlockTask::~CalcFlockTask()
@@ -123,19 +122,51 @@ void CalcFlockTask::DoWork()
 			FVector offset = otherBoid->position - boids[index]->position;
 			float sqrDst = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z;
 	
-			if (sqrDst < viewRadius * viewRadius)
+			if (sqrDst < boids[index]->viewRadius * boids[index]->viewRadius)
 			{
 				boids[index]->numPerceivedFlockmates++;
 				boids[index]->avgBoidDir += otherBoid->direction;
 				boids[index]->centroid += otherBoid->position;
 	
-				if (sqrDst < avoidRadius * avoidRadius)
+				if (sqrDst < boids[index]->avoidRadius * boids[index]->avoidRadius)
 				{
 					boids[index]->avgAvoidDir -= offset / sqrDst;
 				}
 			}
 		}
 	}
+
+	boids[index]->acceleration = FVector(0);
+
+	//target seek force
+	if (boids[index]->target != nullptr) {
+		FVector offsetToTarget = (boids[index]->target->GetActorLocation() - boids[index]->position);
+		boids[index]->acceleration = boids[index]->GetForceToDirection(offsetToTarget) * boids[index]->targetWeight;
+	}
+
+	//flocking forces
+	if (boids[index]->numPerceivedFlockmates != 0)
+	{
+		boids[index]->centroid /= boids[index]->numPerceivedFlockmates;
+
+		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->avgBoidDir) * boids[index]->alignmentWeight;
+		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->centroid - boids[index]->position) * boids[index]->cohesionWeight;
+		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->avgAvoidDir) * boids[index]->seperationWeight;
+	}
+
+	//object avoidance
+	if (boids[index]->IsCloseToObject())
+	{
+		FVector collisionAvoidForce = boids[index]->GetForceToDirection(boids[index]->GetAvoidDir()) * boids[index]->avoidWeight;
+		boids[index]->acceleration += collisionAvoidForce;
+	}
+
+	boids[index]->velocity += boids[index]->acceleration * deltaTime;
+	float speed = boids[index]->velocity.Size();
+	boids[index]->direction = boids[index]->velocity / speed;
+	speed = FMath::Clamp(speed, boids[index]->minSpeed, boids[index]->maxSpeed);
+	boids[index]->velocity = boids[index]->direction * speed;
+	boids[index]->position += boids[index]->velocity * deltaTime;
 }
 
 void CalcFlockTask::DoWorkMain()
