@@ -5,7 +5,7 @@ For this project, I implemented Reynold's flocking behaviors in unreal with mult
 
 ## Screenshots
 ![alt text](https://i.imgur.com/8Rb9Ll1.png "Flocking1")
-![alt text](https://i.imgur.com/HLmYz5a.jpg "Flocking2")
+![alt text](https://i.imgur.com/Krw0GDa.jpg "Flocking2")
 
 ## Goals
 * Add Octree for spatial optimization
