@@ -1,10 +1,10 @@
-//Fill out your copyright notice in the Description page of Project Settings
+// Fill out your copyright notice in the Description page of Project Settings
 #include "BoidManager.h"
 
-//Sets default values
+// Sets default values
 ABoidManager::ABoidManager()
 {
-	//Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -25,14 +25,14 @@ void ABoidManager::BeginPlay()
 	}
 
 
-	//init after array in initialized so you can pass it along with everything else from the editor
+	//init after array in initialized
 	for (int i = 0; i < boidCount; i++)
 	{
 		boids[i]->Init(bodyRef, (TArray<AActor*>)boids, target, avoidWeight, seperationWeight, cohesionWeight, alignmentWeight, targetWeight, maxSpeed, minSpeed, maxForce, boundsRadius, collisionCheckDistance, numViewDirections, traceChannel, points);
 	}
 }
 
-//Called every frame
+// Called every frame
 void ABoidManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

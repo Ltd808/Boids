@@ -2,7 +2,9 @@
 #include "Boid.h"
 
 //using this so we can init the static mesh at the right time
-void ABoid::Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids)
+void ABoid::Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids, AActor* a_target, float a_avoidWeight, float a_seperationWeight, 
+					float a_cohesionWeight, float a_alignmentWeight, float a_targetWeight, float a_maxSpeed, float a_minSpeed, 
+					float a_maxForce, float a_boundsRadius, float a_collisionCheckDistance, int a_numViewDirections, TEnumAsByte<ETraceTypeQuery> a_traceChannel, TArray<FVector> a_points)
 {
 	//set body
 	body->SetStaticMesh(bodyRef);
@@ -21,7 +23,35 @@ void ABoid::Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids)
 
 	velocity = direction * maxSpeed;
 
-	CalcPoints();
+	AActor* target = a_target;
+
+	TEnumAsByte<ETraceTypeQuery> traceChannel = a_traceChannel;
+
+	target = a_target;
+
+	avoidWeight = a_avoidWeight;
+
+	seperationWeight = a_seperationWeight;
+
+	cohesionWeight = a_cohesionWeight;
+
+	alignmentWeight = a_alignmentWeight;
+
+	targetWeight = a_targetWeight;
+
+	maxSpeed = a_maxSpeed;
+
+	minSpeed = a_minSpeed;
+
+	maxForce = a_maxForce;
+
+	boundsRadius = a_boundsRadius;
+
+	collisionCheckDistance = a_collisionCheckDistance;
+
+	numViewDirections = a_numViewDirections;
+
+	points = a_points;
 }
 
 // Sets default values
@@ -136,32 +166,6 @@ FVector ABoid::GetForceToDirection(FVector a_direction)
 {
 	FVector direction = (a_direction.GetSafeNormal() * maxSpeed) - velocity;
 	return direction.GetClampedToMaxSize(maxForce);
-}
-
-//golden spiral method
-void ABoid::CalcPoints()
-{
-	float goldenRatio = (1 + FMath::Sqrt(5)) / 2;
-	float angleIncrement = PI * 2 * goldenRatio;
-
-	for (int i = 0; i < numViewDirections; i++)
-	{
-		float t = (float)i / numViewDirections;
-		float inclination = FMath::Acos(1 - 2 * t);
-		float azimuth = angleIncrement * i;
-
-		float x = FMath::Sin(inclination) * FMath::Cos(azimuth);
-		float y = FMath::Sin(inclination) * FMath::Sin(azimuth);
-		float z = FMath::Cos(inclination);
-
-		//rotate torward forward like boid cone
-		FTransform newTransform;
-		FQuat deltaRotate;
-		newTransform.SetRotation(newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0)));
-		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, FVector(x, y, z));
-
-		points.Add(viewDirection);
-	}
 }
 
 
