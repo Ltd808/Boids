@@ -5,13 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
-#include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Containers/EnumAsByte.h"
 #include "Engine/World.h"
 #include "Boid.h"
-#include "DrawDebugHelpers.h"
-#include "Async/ParallelFor.h"
 
 #include "BoidManager.generated.h"
 
@@ -36,12 +33,6 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float maxForce =  300.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float viewRadius = 250.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidRadius = 200.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Properties")
 		float boundsRadius = 25.0f;
@@ -75,18 +66,16 @@ public:
 
 	TArray<ABoid*> boids;
 
-	TArray<FVector> points;
+	UPROPERTY(EditAnywhere, Category = "Boid Properties")
+		float viewRadius = 250.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Properties")
+		float avoidRadius = 200.0f;
+
+	bool IsRunningOnMain = false;
 
 	// Sets default values for this actor's properties
 	ABoidManager();
-
-	bool IsCloseToObject(int index);
-
-	FVector GetAvoidDir(int index);
-
-	FVector GetForceToDirection(FVector a_direction, int index);
-
-	void CalcPoints();
 
 protected:
 	// Called when the game starts or when spawned
@@ -95,4 +84,37 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintCallable)
+	void RunFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_viewRadius, float a_avoidRadius);
+
+	UFUNCTION(BlueprintCallable)
+	void RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidIndex, float a_viewRadius, float a_avoidRadius);
+};
+
+class CalcFlockTask : public FNonAbandonableTask
+{
+public:
+
+	CalcFlockTask(TArray<ABoid*> boids, int boidIndex, float viewRadius, float avoidRadius);
+
+	~CalcFlockTask();
+
+	//requied by UE4
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(CalcFlockTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
+
+	TArray<ABoid*> boids;
+
+	float viewRadius;
+
+	float avoidRadius;
+
+	int index;
+
+	void DoWork();
+
+	void DoWorkMain();
 };
