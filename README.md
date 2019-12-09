@@ -8,5 +8,5 @@ This project is a an attempt at creating Reynold's flocking behaviors in unreal.
 ![alt text](https://i.imgur.com/HLmYz5a.jpg "Flocking2")
 
 ## Goals
-Add Octree for spatial optimization
-Move parallel proccessing to the GPU.
+* Add Octree for spatial optimization
+* Move parallel proccessing to the GPU.
