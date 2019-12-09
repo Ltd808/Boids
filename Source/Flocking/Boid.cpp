@@ -9,19 +9,8 @@ void ABoid::Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids, AActor* a_target
 	//set body
 	body->SetStaticMesh(bodyRef);
 
+	//copy params
 	boids = a_boids;
-
-	//store ac
-	position = GetActorLocation();
-
-	FQuat newRotation;
-	
-	SetActorRotation(newRotation.MakeFromEuler(FVector(FMath::RandRange(-180, 180))));
-
-	//set forward with new rotation
-	direction = GetActorForwardVector();
-
-	velocity = direction * maxSpeed;
 
 	AActor* target = a_target;
 
@@ -52,6 +41,17 @@ void ABoid::Init(UStaticMesh* bodyRef, TArray<AActor*> a_boids, AActor* a_target
 	numViewDirections = a_numViewDirections;
 
 	points = a_points;
+
+	//setup
+	position = GetActorLocation();
+
+	FQuat newRotation;
+
+	SetActorRotation(newRotation.MakeFromEuler(FVector(FMath::RandRange(0, 360), FMath::RandRange(0, 360), FMath::RandRange(0, 360))));
+
+	direction = GetActorForwardVector();
+
+	velocity = direction * maxSpeed;
 }
 
 // Sets default values
@@ -66,7 +66,6 @@ ABoid::ABoid()
 	//set body as root
 	RootComponent = body;
 
-	//starts at 0
 	numPerceivedFlockmates = 0;
 }
 
