@@ -1,4 +1,4 @@
-# Flocking
+# Boids
 
 ## Description
 For this project I implemented Reynold's flocking behaviors in unreal with multithreading (and spatial optimization.(SOON)). On my laptop I can spawn around 700 boids at 60fps, and ~1400 boids at 30fps.
