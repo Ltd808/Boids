@@ -7,8 +7,63 @@
 #include "Boid.h"
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "DrawDebugHelpers.h"
 
 #include "BoidManager.generated.h"
+
+USTRUCT()
+struct FBoidInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Boid Movement")
+		float maxSpeed = 500.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Movement")
+		float minSpeed = 200.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Movement")
+		float maxForce = 300.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		float boundsRadius = 25.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		float viewRadius = 300.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		float avoidRadius = 100.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		float collisionCheckDistance = 500.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		AActor* target = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		TEnumAsByte<ETraceTypeQuery> traceChannel = ETraceTypeQuery::TraceTypeQuery3;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Weights")
+		float seperationWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Weights")
+		float cohesionWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Weights")
+		float alignmentWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Weights")
+		float avoidWeight = 10.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Weights")
+		float targetWeight = 1.0f;
+
+	//Constructor
+	//FBoidInfo()
+	//{
+	//}
+};
 
 UCLASS()
 class FLOCKING_API ABoidManager : public AActor
@@ -20,66 +75,25 @@ public:
 	//Sets default values for this actor's properties
 	ABoidManager();
 
-	//manager variables
+	//generated vars
 	TArray<ABoid*> boids;
-
-	//view direction points
 	TArray<FVector> points;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Manager Properties")
+	//start variables
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		bool IsRunningOnMain = false;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Manager Properties")
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		int boidCount = 300;
 
-	//boid variables
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		int numViewDirections = 300;
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		int numViewDirections = 100;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float maxSpeed = 500.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float minSpeed = 200.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float maxForce = 300.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float boundsRadius = 25.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float collisionCheckDistance = 500.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidWeight = 10.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float seperationWeight = 1.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float cohesionWeight = 1.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float alignmentWeight = 1.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float targetWeight = 1.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		AActor* target;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		UStaticMesh* bodyRef;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		TEnumAsByte<ETraceTypeQuery> traceChannel = ETraceTypeQuery::TraceTypeQuery3;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float viewRadius = 250.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Properties")
-		float avoidRadius = 100.0f;
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		FBoidInfo boidInfo;
 
 protected:
 	//Called when the game starts or when spawned
@@ -93,38 +107,46 @@ public:
 	void CalcPoints();
 
 	//create a new thread to calculate flock variables
-	UFUNCTION(BlueprintCallable)
-		void RunFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime);
+	void RunFlockTask(int boidIndex, float deltaTime, TArray<ABoid*> boids, TArray<FVector> points, FBoidInfo boidsInfo);
 
 	//calculate flock variables in game thread
-	UFUNCTION(BlueprintCallable)
-		void RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime);
+	void RunFlockTaskOnMain(int boidIndex, float deltaTime, TArray<ABoid*> boids, TArray<FVector> points, FBoidInfo boidsInfo);
 };
 
-//==============================================================================================================================================================
-//threading
-
-class CalcFlockTask : public FNonAbandonableTask
+class BoidWorker : public FNonAbandonableTask
 {
 public:
 
-	CalcFlockTask(TArray<ABoid*> boids, int boidIndex, float deltaTime);
+	BoidWorker(int boidIndex, float deltaTime, TArray<ABoid*> boids, TArray<FVector> points, FBoidInfo boidsInfo);
 
-	~CalcFlockTask();
+	~BoidWorker();
 
 	//requied by UE4
 	FORCEINLINE TStatId GetStatId() const
 	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(CalcFlockTask, STATGROUP_ThreadPoolAsyncTasks);
+		RETURN_QUICK_DECLARE_CYCLE_STAT(BoidWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
-	TArray<ABoid*> boids;
+	int index;
 
 	float deltaTime;
 
-	int index;
+	TArray<ABoid*> boids;
+
+	TArray<FVector> points;
+
+	FBoidInfo boidInfo;
 
 	void DoWork();
 
 	void DoWorkMain();
+
+	//spherecast ahead of object to check for collisions
+	bool IsCloseToObject();
+
+	//sphere cast along point array until safe direction is found
+	FVector GetAvoidDir();
+
+	//get force required to move in the specified direction
+	FVector GetForceToDirection(FVector direction);
 };

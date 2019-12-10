@@ -22,13 +22,8 @@ void ABoidManager::BeginPlay()
 		FActorSpawnParameters spawnParams;
 		newTransform.SetLocation(newPosition);
 		boids.Add(GetWorld()->SpawnActor<ABoid>(ABoid::StaticClass(), newTransform, spawnParams));
-	}
 
-
-	//init after array in initialized so you can pass it along with everything else from the editor
-	for (int i = 0; i < boidCount; i++)
-	{
-		boids[i]->Init(bodyRef, (TArray<AActor*>)boids, target, avoidWeight, seperationWeight, cohesionWeight, alignmentWeight, targetWeight, maxSpeed, minSpeed, maxForce, boundsRadius, viewRadius, avoidRadius, collisionCheckDistance, numViewDirections, traceChannel, points);
+		boids[i]->Init(bodyRef);
 	}
 }
 
@@ -42,11 +37,11 @@ void ABoidManager::Tick(float DeltaTime)
 		//create threads or run on main
 		if (IsRunningOnMain) 
 		{
-			RunFlockTaskOnMain(boids, i, DeltaTime);
+			RunFlockTaskOnMain(i, DeltaTime, boids, points, boidInfo);
 		}
 		else
 		{
-			RunFlockTask(boids, i, DeltaTime);
+			RunFlockTask(i, DeltaTime, boids, points, boidInfo);
 		}
 	}
 }
@@ -77,36 +72,35 @@ void ABoidManager::CalcPoints()
 	}
 }
 
-void ABoidManager::RunFlockTask(TArray<ABoid*> a_boids, int a_boidCount, float a_deltaTime)
+void ABoidManager::RunFlockTask(int a_boidIndex, float a_deltaTime, TArray<ABoid*> a_boids, TArray<FVector> a_points, FBoidInfo a_boidInfo)
 {
-	(new FAutoDeleteAsyncTask<CalcFlockTask>(a_boids, a_boidCount, a_deltaTime))->StartBackgroundTask();
+	(new FAutoDeleteAsyncTask<BoidWorker>(a_boidIndex, a_deltaTime, a_boids,  a_points, a_boidInfo))->StartBackgroundTask();
 }
 
-void ABoidManager::RunFlockTaskOnMain(TArray<ABoid*> a_boids, int a_boidCount, float a_deltaTime)
+void ABoidManager::RunFlockTaskOnMain(int a_boidIndex, float a_deltaTime, TArray<ABoid*> a_boids, TArray<FVector> a_points, FBoidInfo a_boidInfo)
 {
-	CalcFlockTask* task = new CalcFlockTask(a_boids, a_boidCount, a_deltaTime);
+	BoidWorker* task = new BoidWorker(a_boidIndex, a_deltaTime, a_boids, a_points, a_boidInfo);
 
 	task->DoWorkMain();
 
 	delete task;
 }
 
-//==============================================================================================================================================================
-//threading
-
-CalcFlockTask::CalcFlockTask(TArray<ABoid*> a_boids, int a_boidIndex, float a_deltaTime)
+BoidWorker::BoidWorker(int a_boidIndex, float a_deltaTime, TArray<ABoid*> a_boids, TArray<FVector> a_points, FBoidInfo a_boidInfo)
 {
-	boids = a_boids;
 	index = a_boidIndex;
 	deltaTime = a_deltaTime;
+	boids = a_boids;
+	points = a_points;
+	boidInfo = a_boidInfo;
 }
 
-CalcFlockTask::~CalcFlockTask()
+BoidWorker::~BoidWorker()
 {
 	//UE_LOG(LogTemp, Warning, TEXT("Task Finished."));
 }
 
-void CalcFlockTask::DoWork()
+void BoidWorker::DoWork()
 {
 	boids[index]->numPerceivedFlockmates = 0;
 	boids[index]->avgBoidDir = FVector(0.0f);
@@ -122,13 +116,13 @@ void CalcFlockTask::DoWork()
 			FVector offset = otherBoid->position - boids[index]->position;
 			float sqrDst = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z;
 	
-			if (sqrDst < boids[index]->viewRadius * boids[index]->viewRadius)
+			if (sqrDst < boidInfo.viewRadius * boidInfo.viewRadius)
 			{
 				boids[index]->numPerceivedFlockmates++;
 				boids[index]->avgBoidDir += otherBoid->direction;
 				boids[index]->centroid += otherBoid->position;
 	
-				if (sqrDst < boids[index]->avoidRadius * boids[index]->avoidRadius)
+				if (sqrDst < boidInfo.avoidRadius * boidInfo.avoidRadius)
 				{
 					boids[index]->avgAvoidDir -= offset / sqrDst;
 				}
@@ -138,40 +132,86 @@ void CalcFlockTask::DoWork()
 
 	boids[index]->acceleration = FVector(0);
 
-	//target seek force
-	if (boids[index]->target != nullptr) {
-		FVector offsetToTarget = (boids[index]->target->GetActorLocation() - boids[index]->position);
-		boids[index]->acceleration = boids[index]->GetForceToDirection(offsetToTarget) * boids[index]->targetWeight;
-	}
+	//target seek force CAUSES MASSIVE FRAME DROPS DUE TO GET ACTOR LOCATION
+	//if (boidInfo.target != nullptr) {
+	//	FVector offsetToTarget = (boidInfo.target->GetActorLocation() - boids[index]->position); 
+	//	boids[index]->acceleration = GetForceToDirection(offsetToTarget) * boidInfo.targetWeight;
+	//}
 
 	//flocking forces
 	if (boids[index]->numPerceivedFlockmates != 0)
 	{
 		boids[index]->centroid /= boids[index]->numPerceivedFlockmates;
 
-		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->avgBoidDir) * boids[index]->alignmentWeight;
-		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->centroid - boids[index]->position) * boids[index]->cohesionWeight;
-		boids[index]->acceleration += boids[index]->GetForceToDirection(boids[index]->avgAvoidDir) * boids[index]->seperationWeight;
+		boids[index]->acceleration += GetForceToDirection(boids[index]->avgBoidDir) * boidInfo.alignmentWeight;
+		boids[index]->acceleration += GetForceToDirection(boids[index]->centroid - boids[index]->position) * boidInfo.cohesionWeight;
+		boids[index]->acceleration += GetForceToDirection(boids[index]->avgAvoidDir) * boidInfo.seperationWeight;
 	}
 
 	//object avoidance
-	if (boids[index]->IsCloseToObject())
+	if (IsCloseToObject())
 	{
-		FVector collisionAvoidForce = boids[index]->GetForceToDirection(boids[index]->GetAvoidDir()) * boids[index]->avoidWeight;
+		FVector collisionAvoidForce = GetForceToDirection(GetAvoidDir()) * boidInfo.avoidWeight;
 		boids[index]->acceleration += collisionAvoidForce;
 	}
 
 	boids[index]->velocity += boids[index]->acceleration * deltaTime;
 	float speed = boids[index]->velocity.Size();
 	boids[index]->direction = boids[index]->velocity / speed;
-	speed = FMath::Clamp(speed, boids[index]->minSpeed, boids[index]->maxSpeed);
+	speed = FMath::Clamp(speed, boidInfo.minSpeed, boidInfo.maxSpeed);
 	boids[index]->velocity = boids[index]->direction * speed;
 	boids[index]->position += boids[index]->velocity * deltaTime;
 }
 
-void CalcFlockTask::DoWorkMain()
+void BoidWorker::DoWorkMain()
 {
 	DoWork();
 }
+
+bool BoidWorker::IsCloseToObject()
+{
+	//hit result
+	FHitResult hit;
+
+	if (UKismetSystemLibrary::SphereTraceSingle((UObject*)boids[index]->GetWorld(), boids[index]->position, boids[index]->position + boids[index]->direction * boidInfo.collisionCheckDistance, 
+		boidInfo.boundsRadius, boidInfo.traceChannel, false, (TArray<AActor*>)boids, EDrawDebugTrace::None, hit, true))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+FVector BoidWorker::GetAvoidDir()
+{
+	for (int i = 0; i < points.Num(); i++)
+	{
+		//rotate the point torwards forward
+		FTransform newTransform = boids[index]->GetTransform();
+		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, points[i]);
+
+		FHitResult hit;
+
+		TArray<AActor*> empty;
+
+		if (!UKismetSystemLibrary::SphereTraceSingle((UObject*)boids[index]->GetWorld(), boids[index]->position, boids[index]->position + viewDirection * boidInfo.collisionCheckDistance, 
+			boidInfo.boundsRadius, boidInfo.traceChannel, false, (TArray<AActor*>)boids, EDrawDebugTrace::None, hit, true))
+		{
+			return viewDirection;
+		}
+	}
+
+	return boids[index]->direction;
+}
+
+FVector BoidWorker::GetForceToDirection(FVector a_direction)
+{
+	FVector direction = (a_direction.GetSafeNormal() * boidInfo.maxSpeed) - boids[index]->velocity;
+	return direction.GetClampedToMaxSize(boidInfo.maxForce);
+}
+
+
+
+
 
 
