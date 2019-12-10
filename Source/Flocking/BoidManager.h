@@ -4,12 +4,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
-#include "Boid.h"
-#include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "TimerManager.h"
+#include "Octant.h"
+#include "Boid.h"	
 #include "DrawDebugHelpers.h"
-#include "GenericOctree.h"
 
 #include "BoidManager.generated.h"
 
@@ -80,9 +80,17 @@ public:
 	TArray<ABoid*> boids;
 	TArray<FVector> points;
 
+	AOctant* myOctant;
+
 	//start variables
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		bool IsRunningOnMain = false;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		bool IsSpatialPartitioningEnabled = true;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		bool IsSpatialPartitioningDisplayOn = true;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		int boidCount = 300;
@@ -91,10 +99,18 @@ public:
 		int numViewDirections = 100;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		int maxOctreeLevel = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		int octreeIdealBoidCount = 20;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		UStaticMesh* bodyRef;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		FBoidInfo boidInfo;
+
+	FTimerHandle timerHandle;
 
 protected:
 	//Called when the game starts or when spawned
@@ -104,6 +120,8 @@ public:
 
 	//Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	void CalcOctree();
 	
 	void CalcPoints();
 
@@ -151,3 +169,4 @@ public:
 	//get force required to move in the specified direction
 	FVector GetForceToDirection(FVector direction);
 };
+

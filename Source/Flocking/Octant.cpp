@@ -1,74 +1,38 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "Octant.h"
 
-void AOctant::Init(UStaticMesh* bodyRef)
+void AOctant::InitRoot(int a_maxLevel, int a_idealEntityCount, float a_size, TArray<ABoid*> a_boids)
 {
-	body->SetStaticMesh(bodyRef);
-}
+	boids = a_boids;
 
-// Called when the game starts or when spawned
-void AOctant::BeginPlay()
-{
-	if (this == root)
-	{
-		ConstructTree();
-	}
-}
-
-// Called every frame
-void AOctant::Tick(float DeltaTime)
-{
-
-}
-
-//child constructor
-AOctant::AOctant()
-{
-	PrimaryActorTick.bCanEverTick = true;
-
-	body = CreateDefaultSubobject<UStaticMeshComponent>("Body");
-	RootComponent = body;
-
-	center = GetActorLocation();
-	min = center - (FVector(size / 2));
-	max = center + (FVector(size / 2));
-
-	m_pParent = nullptr;
-
-	root = nullptr;
-}
-
-//root constructor
-AOctant::AOctant(int a_nMaxLevel, int a_nIdealEntityCount, float size)
-{
-	PrimaryActorTick.bCanEverTick = true;
-
-	body = CreateDefaultSubobject<UStaticMeshComponent>("Body");
-	RootComponent = body;
+	size = a_size;
+	maxLevel = a_maxLevel;
+	idealEntityCount = a_idealEntityCount;
 
 	octantCount = 1;
-	maxLevel = a_nMaxLevel;
-	idealEntityCount = a_nIdealEntityCount;
-
 	ID = 0;
 	level = 0;
 
-	size = size;
 
 	center = FVector(0.0f);
 	min = -FVector(size / 2);
 	max = FVector(size / 2);
 
-	m_pParent = nullptr;
-
 	root = this;
+
+	ConstructTree();
 }
 
-
-//destuctor
-AOctant::~AOctant()
+//child constructo
+void AOctant::InitChild()
 {
-	KillBranches();
+	min = center - FVector(size / 2);
+	max = center + FVector(size / 2);
+}
+
+AOctant::AOctant()
+{
+
 }
 
 //Creates a tree from root to max level
@@ -78,13 +42,7 @@ void AOctant::ConstructTree()
 	if (level != 0) return;
 
 	//subdivide (recursive function)
-	if (ContainsMoreThan(idealEntityCount))
-	{
-		Subdivide();
-	}
-
-	//assign IDS
-	AssignIDtoEntity();
+	Subdivide();
 }
 
 //allocate child octants
@@ -105,64 +63,59 @@ void AOctant::Subdivide()
 	FTransform newTransform;
 	FActorSpawnParameters spawnParams;
 
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	for (size_t i = 0; i < 8; i++)
+	{
+		children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	}
+
+	children[0]->center = childCenter;
 
 	//bottom right
 	childCenter.X += childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[1]->center = childCenter;
 
 	//bottom right front
 	childCenter.Z += childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[2]->center = childCenter;
 
 	//bottom left front
 	childCenter.X -= childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[3]->center = childCenter;
 
 	//top left front
 	childCenter.Y += childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[4]->center = childCenter;
 
 	//top right front
 	childCenter.X += childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[5]->center = childCenter;
 
 	//top right
 	childCenter.Z -= childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[6]->center = childCenter;
 
 	//top left 
 	childCenter.X -= childSize;
-	newTransform.SetLocation(childCenter);
-	newTransform.SetScale3D(FVector(childSize));
-	children.Add(GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams));
+	children[7]->center = childCenter;
 
 	for (int i = 0; i < children.Num(); i++)
 	{
+		children[i]->size = childSize;
+
 		//set new variables
 		children[i]->level = level + 1;
 
-		children[i]->m_pParent = this;
-
 		children[i]->root = root;
+
+		children[i]->boids = boids;
+
+		children[i]->InitChild();
 
 		root->octantCount++;
 
 		children[i]->ID = root->octantCount - 1;
+
+		children[i]->idealEntityCount = idealEntityCount;
 
 		//has more than idea and isnt max level call resursively
 		if (children[i]->ContainsMoreThan(idealEntityCount) && children[i]->level < root->maxLevel)
@@ -172,111 +125,100 @@ void AOctant::Subdivide()
 	}
 }
 
-//Asks the MyOctant if it contains more than this many Bounding Objects
-bool AOctant::ContainsMoreThan(int a_nEntities)
-{
-	int entityCount = 200;
-
-	//counter
-	int collidingObjects = 0;
-	for (int i = 0; i < entityCount; i++)
-	{
-		if (IsColliding(i))
-		{
-			collidingObjects++;
-		}
-		if (collidingObjects > a_nEntities)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-//check if entity is in this octant
-bool AOctant::IsColliding(int a_uRBIndex)
-{
-	//int entityCount = 200;
-
-	////index goes over
-	//if (a_uRBIndex >= entityCount || entityCount < 0) { return false; }
-
-	////get rigidbody
-	//MyEntity* entityToCheck = m_pEntityMngr->GetEntity(a_uRBIndex);
-	//MyRigidBody* rigidBodyToCheck = entityToCheck->GetRigidBody();
-
-	////get bounds
-	//vector3 entityMin = rigidBodyToCheck->GetMinGlobal();
-	//vector3 entityMax = rigidBodyToCheck->GetMaxGlobal();
-
-	////AABB
-	//return (m_v3Min.x <= entityMax.x && m_v3Max.x >= entityMin.x) &&
-	//	(m_v3Min.y <= entityMax.y && m_v3Max.y >= entityMin.y) &&
-	//	(m_v3Min.z <= entityMax.z && m_v3Max.z >= entityMin.z);
-	return true;
-}
-
 //Deletes all children and the children of their children recursively
 void AOctant::KillBranches()
 {
-	for (size_t i = 0; i < children.Num(); i++)
+	for (int i = 0; i < children.Num(); i++)
 	{
-		//if there are children call recursively
+		////if there are children call recursively
 		if (children[i]->children.Num() > 0)
 		{
 			children[i]->KillBranches();
 		}
 
 		//deallocate
-		children[i]->~AOctant();
+		GetWorld()->DestroyActor(children[i]);
 	}
+	children.Empty();
+}
+
+//check if entity is in this octant
+bool AOctant::IsColliding(int index)
+{
+	//index goes over
+	if (index >= boids.Num()) { return false; }
+
+	//get bounds
+	FVector entityMin = boids[index]->position - FVector(25,25,25);
+	FVector entityMax = boids[index]->position + FVector(25, 25, 25);
+
+	//AABB
+	return (min.X <= entityMax.X && max.X >= entityMin.X) &&
+		(min.Y <= entityMax.Y && max.Y >= entityMin.Y) &&
+		(min.Z <= entityMax.Z && max.Z >= entityMin.Z);
 }
 
 //display going down the tree
-void AOctant::Display()
+void AOctant::Display(FColor color)
 {
-	////display self
-	//matrix4 boxmatrix = glm::translate(identity_m4, m_v3center) * glm::scale(vector3(m_fsize));
-	//m_pmeshmngr->addcubetorenderlist(boxmatrix, a_v3color, render_wire);
+	//display and get out if no children
+	if (children.Num() == 0) 
+	{ 
+		DrawDebugBox(GetWorld(), center, FVector(size / 2), FQuat::Identity, color, false, 2.0f, 0, 10);
+		return; 
+	}
 
-	////get out if no children
-	//if (m_uchildren == 0) { return; }
-
-	////recursively call display on children
-	//for (uint i = 0; i < m_uchildren; i++)
-	//{
-	//	m_pchild[i]->display(a_v3color);
-	//}
+	//recursively call display on children
+	for (int i = 0; i < children.Num(); i++)
+	{
+		children[i]->Display(color);
+	}
 }
 
 
 void AOctant::AssignIDtoEntity(void)
 {
 	////call recursively
-	//for (size_t i = 0; i < m_uChildren; i++)
-	//{
-	//	m_pChild[i]->AssignIDtoEntity();
-	//}
+	for (int i = 0; i < children.Num(); i++)
+	{
+		children[i]->AssignIDtoEntity();
+	}
 
-	////only assign for end nodes
-	//if (m_uChildren == 0)
-	//{
-	//	uint entityCount = m_pEntityMngr->GetEntityCount();
+	//only assign for end nodes
+	if (children.Num() == 0)
+	{
+		//go through all boids
+		for (int i = 0; i < boids.Num(); i++)
+		{
+			//add if colliding
+			if (IsColliding(i))
+			{
+				//add entity to list
+				//boidsInOctant.Add(boids[i]);
 
-	//	//go through all entities
-	//	for (uint i = 0; i < entityCount; i++)
-	//	{
-	//		//add if colliding
-	//		if (IsColliding(i))
-	//		{
-	//			//add entity to list
-	//			m_EntityList.push_back(i);
+				//set dimension of entity to current octant
+				boids[i]->dimensionID = ID;
+			}
+		}
+	}
+}
 
-	//			//set dimension of entity to current octant
-	//			m_pEntityMngr->AddDimension(i, m_uID);
-	//		}
-	//	}
-	//}
+//Asks the MyOctant if it contains more than this many Bounding Objects
+bool AOctant::ContainsMoreThan(int a_nEntities)
+{
+	//counter
+	int collidingObjects = 0;
+	for (int i = 0; i < boids.Num(); i++)
+	{
+		if (IsColliding(i))
+		{
+			collidingObjects++;
+		}
+		if (collidingObjects > a_nEntities) 
+		{
+			return true;
+		}
+	}
+
+	return false;
 }

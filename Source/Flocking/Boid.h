@@ -24,6 +24,8 @@ public:
 	//counts
 	int numPerceivedFlockmates;
 
+	int dimensionID = 0;
+
 	//movement vectors
 	FVector position = FVector(0.0f);
 	FVector acceleration = FVector(0.0f);

@@ -25,6 +25,30 @@ void ABoidManager::BeginPlay()
 
 		boids[i]->Init(bodyRef);
 	}
+
+	if (IsSpatialPartitioningEnabled)
+	{
+		FTransform newTransform;
+		FActorSpawnParameters spawnParams;
+
+		myOctant = GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams);
+
+		myOctant->InitRoot(maxOctreeLevel, octreeIdealBoidCount, 3000, boids);
+
+		GetWorld()->GetTimerManager().SetTimer(timerHandle, this, &ABoidManager::CalcOctree, 2.0f, true, 0.0f);
+	}
+}
+
+void ABoidManager::CalcOctree()
+{
+	myOctant->KillBranches();
+	myOctant->ConstructTree();
+	myOctant->AssignIDtoEntity();
+
+	if (IsSpatialPartitioningDisplayOn) {
+		myOctant->Display(FColor::Yellow);
+	}
+
 }
 
 //Called every frame
@@ -111,7 +135,7 @@ void BoidWorker::DoWork()
 	{
 		ABoid* otherBoid = boids[i];
 	
-		if (index != i)
+		if (index != i && boids[index]->dimensionID == otherBoid->dimensionID)
 		{
 			FVector offset = otherBoid->position - boids[index]->position;
 			float sqrDst = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z;
@@ -209,8 +233,6 @@ FVector BoidWorker::GetForceToDirection(FVector a_direction)
 	FVector direction = (a_direction.GetSafeNormal() * boidInfo.maxSpeed) - boids[index]->velocity;
 	return direction.GetClampedToMaxSize(boidInfo.maxForce);
 }
-
-
 
 
 
