@@ -18,7 +18,7 @@ void ABoidManager::BeginPlay()
 	for (int i = 0; i < boidCount; i++)
 	{
 		FTransform newTransform;
-		FVector newPosition = FVector(FMath::RandRange(-1000.0f, 1000.0f), FMath::RandRange(-1000.0f, 1000.0f), FMath::RandRange(-1000.0f, 1000.0f));
+		FVector newPosition = FVector(FMath::RandRange(-100.0f, 100.0f), FMath::RandRange(-100.0f, 100.0f), FMath::RandRange(-100.0f, 100.0f));
 		FActorSpawnParameters spawnParams;
 		newTransform.SetLocation(newPosition);
 		boids.Add(GetWorld()->SpawnActor<ABoid>(ABoid::StaticClass(), newTransform, spawnParams));
@@ -35,7 +35,7 @@ void ABoidManager::BeginPlay()
 
 		myOctant->InitRoot(maxOctreeLevel, octreeIdealBoidCount, 3000, boids);
 
-		GetWorld()->GetTimerManager().SetTimer(timerHandle, this, &ABoidManager::CalcOctree, 2.0f, true, 0.0f);
+		GetWorld()->GetTimerManager().SetTimer(timerHandle, this, &ABoidManager::CalcOctree, octreeTimerInterval, true, 0.0f);
 	}
 }
 

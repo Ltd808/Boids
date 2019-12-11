@@ -105,6 +105,9 @@ public:
 		int octreeIdealBoidCount = 20;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
+		float octreeTimerInterval = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		UStaticMesh* bodyRef;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
