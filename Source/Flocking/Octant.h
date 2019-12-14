@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 
 #include "Engine/World.h"
-#include "Boid.h"
 #include "DrawDebugHelpers.h"
+#include "BoidManager.h"
 
 #include "Octant.generated.h"
 
@@ -30,7 +30,7 @@ public:
 	FVector min;
 	FVector max;
 
-	TArray<ABoid*> boids;
+	TArray<FBoidInfo*> boids;
 
 	TArray<AOctant*> children;
 
@@ -42,7 +42,7 @@ public:
 	void InitChild();
 
 	//init the root of the tree
-	void InitRoot(int maxLevel, int idealEntityCount, float size, TArray<ABoid*> boids);
+	void InitRoot(int maxLevel, int idealEntityCount, float size, TArray<FBoidInfo*> boids);
 
 	//Asks if there is a collision with the Entity specified by index from
 	bool IsColliding(int index);

@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "Octant.h"
 
-void AOctant::InitRoot(int a_maxLevel, int a_idealEntityCount, float a_size, TArray<ABoid*> a_boids)
+void AOctant::InitRoot(int a_maxLevel, int a_idealEntityCount, float a_size, TArray<FBoidInfo*> a_boids)
 {
 	boids = a_boids;
 
@@ -149,8 +149,8 @@ bool AOctant::IsColliding(int index)
 	if (index >= boids.Num()) { return false; }
 
 	//get bounds
-	FVector entityMin = boids[index]->position - FVector(25,25,25);
-	FVector entityMax = boids[index]->position + FVector(25, 25, 25);
+	FVector entityMin = boids[index]->transform.GetLocation() - FVector(25, 25, 25);
+	FVector entityMax = boids[index]->transform.GetLocation() + FVector(25, 25, 25);
 
 	//AABB
 	return (min.X <= entityMax.X && max.X >= entityMin.X) &&
