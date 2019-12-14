@@ -18,32 +18,37 @@ struct FBoidInfo
 	GENERATED_BODY()
 
 	//counts
-	UPROPERTY(EditAnywhere, Category = "Boid")
+	UPROPERTY()
 		int numPerceivedFlockmates = 0;
-	UPROPERTY(EditAnywhere, Category = "Boid")
+
+	UPROPERTY()
 		int dimensionID = 0;
 
-	UPROPERTY(EditAnywhere, Category = "Boid")
+	UPROPERTY()
 		int meshID;
 
 	//movement vectors
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FTransform transform;
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FVector acceleration = FVector(0.0f);
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FVector velocity = FVector(0.0f);
-	UPROPERTY(EditAnywhere, Category = "Boid")
+	UPROPERTY()
+		FTransform Transform;
+
+	UPROPERTY()
+		FVector Acceleration = FVector(0.0f);
+
+	UPROPERTY()
+		FVector Velocity = FVector(0.0f);
+
+	UPROPERTY()
 		FVector direction = FVector(0.0f);
 
-
 	//flock vectors
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FVector centroid = FVector(0.0f);
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FVector avgBoidDir = FVector(0.0f);
-	UPROPERTY(EditAnywhere, Category = "Boid")
-		FVector avgAvoidDir = FVector(0.0f);
+	UPROPERTY()
+		FVector Centroid = FVector(0.0f);
+
+	UPROPERTY()
+		FVector AvgBoidDir = FVector(0.0f);
+
+	UPROPERTY()
+		FVector AvgAvoidDir = FVector(0.0f);
 };
 
 class AOctant;
@@ -54,18 +59,7 @@ class FLOCKING_API ABoidManager : public AActor
 	
 public:	
 
-	//Sets default values for this actor's properties
-	ABoidManager(const FObjectInitializer& ObjectInitializer);
-	
-	//classes
-
-	TArray<FBoidInfo*> boidInfo;
-
-	TArray<FVector> points;
-
-	AOctant* myOctant;
-
-	//start variables
+	//start
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
 		bool IsRunningOnMain = false;
 
@@ -76,34 +70,39 @@ public:
 		bool IsSpatialPartitioningDisplayOn = true;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		int boidCount = 600;
+		int BoidCount = 600;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		int numViewDirections = 100;
+		int ViewDirectionCount = 100;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		int maxOctreeLevel = 3;
+	UPROPERTY(EditAnywhere, Category = "Boid Octree")
+		int OctreeMaxLevel = 3;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		int octreeIdealBoidCount = 20;
+	UPROPERTY(EditAnywhere, Category = "Boid Octree")
+		int OctantIdealBoidCount = 20;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		float octreeTimerInterval = 1.0f;
-	
+	UPROPERTY(EditAnywhere, Category = "Boid Octree")
+		float OctreeTimerInterval = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Boid Octree")
+		FColor OctreeDisplayColor = FColor::Cyan;
+
+	//movement
 	UPROPERTY(EditAnywhere, Category = "Boid Movement")
-		float maxSpeed = 500.0f;
+		float MaxSpeed = 500.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Movement")
 		float minSpeed = 200.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Movement")
-		float maxForce = 300.0f;
+		float MaxForce = 300.0f;
+
+	//perception
+	UPROPERTY(EditAnywhere, Category = "Boid Perception")
+		float ViewRadius = 300.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Perception")
-		float viewRadius = 300.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Boid Perception")
-		float avoidRadius = 100.0f;
+		float AvoidRadius = 100.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Perception")
 		float boundsRadius = 25.0f;
@@ -117,6 +116,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Boid Perception")
 		TEnumAsByte<ETraceTypeQuery> traceChannel = ETraceTypeQuery::TraceTypeQuery3;
 
+	//weights
 	UPROPERTY(EditAnywhere, Category = "Boid Weights")
 		float seperationWeight = 2.0f;
 
@@ -127,50 +127,59 @@ public:
 		float alignmentWeight = 1.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Weights")
-		float avoidWeight = 10.0f;
+		float AvoidWeight = 10.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Boid Weights")
 		float targetWeight = 1.0f;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Start Properties")
-		FBoidInfo boidInfoRef;
+	//instance mesh
+	UPROPERTY(EditAnywhere, Category = "Boid Mesh Instance")
+		class UInstancedStaticMeshComponent* BoidInstancedMesh;
 
-	UPROPERTY(EditAnywhere, Category = "Boid Body")
-		class UInstancedStaticMeshComponent* boids;
+	//make privat
+	FTimerHandle OctreeTimerHandle;
 
-	FTimerHandle timerHandle;
+	TArray<FBoidInfo*> BoidInfo;
+
+	TArray<FVector> Points;
+	
+	AOctant* RootOctant;
 
 protected:
 	//Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:	
+	//set default values
+	ABoidManager(const FObjectInitializer& ObjectInitializer);
 
 	//Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	void CalcOctree();
 	
-	bool IsCloseToObject(int index);
+	bool IsCloseToObject(int Index);
 
-	FVector GetAvoidDir(int index);
+	FVector GetAvoidDir(int Index);
 
-	FVector GetForceToDirection(FVector a_direction, int index);
+	//get force needed to move in the direction vecors direction 
+	FVector GetForceToDirection(FVector Direction, int Index);
 
+	//calculate view points using 3D golden spiral
 	void CalcPoints();
 
 	//create a new thread to calculate flock variables
-	void RunFlockTask(int boidIndex, float deltaTime, TArray<FBoidInfo*> boidsInfo, float viewRadius, float avoidRadius);
+	void RunFlockTask(int Index, float DeltaTime, TArray<FBoidInfo*> BoidInfo, float ViewRadius, float AvoidRadius);
 
 	//calculate flock variables in game thread
-	void RunFlockTaskOnMain(int boidIndex, float deltaTime, TArray<FBoidInfo*> boidsInfo, float viewRadius, float avoidRadius);
+	void RunFlockTaskOnMain(int Index, float DeltaTime, TArray<FBoidInfo*> BoidInfo, float ViewRadius, float AvoidRadius);
 };
 
 class BoidWorker : public FNonAbandonableTask
 {
 public:
 
-	BoidWorker(int boidIndex, float deltaTime, TArray<FBoidInfo*> boidsInfo, float viewRadius, float avoidRadius);
+	BoidWorker(int Index, float DeltaTime, TArray<FBoidInfo*> BoidInfo, float ViewRadius, float AvoidRadius);
 
 	~BoidWorker();
 
@@ -180,15 +189,15 @@ public:
 		RETURN_QUICK_DECLARE_CYCLE_STAT(BoidWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
-	int index;
+	int Index;
 
-	float deltaTime;
+	float DeltaTime;
 
-	float viewRadius;
+	float ViewRadius;
 
-	float avoidRadius;
+	float AvoidRadius;
 
-	TArray<FBoidInfo*> boidsInfo;
+	TArray<FBoidInfo*> BoidInfo;
 
 	void DoWork();
 

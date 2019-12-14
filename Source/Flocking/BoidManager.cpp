@@ -7,8 +7,8 @@ ABoidManager::ABoidManager(const FObjectInitializer& ObjectInitializer)
 	//Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	boids = ObjectInitializer.CreateDefaultSubobject<UInstancedStaticMeshComponent>(this, TEXT("Boifeefed"));
-	RootComponent = boids;
+	BoidInstancedMesh = ObjectInitializer.CreateDefaultSubobject<UInstancedStaticMeshComponent>(this, TEXT("Boifeefed"));
+	RootComponent = BoidInstancedMesh;
 }
 
 //called when the game starts or when spawned
@@ -20,16 +20,16 @@ void ABoidManager::BeginPlay()
 
 
 
-	for (size_t i = 0; i < boidCount; i++)
+	for (size_t i = 0; i < BoidCount; i++)
 	{ 
-		boidInfo.Add(new FBoidInfo());
+		BoidInfo.Add(new FBoidInfo());
 
-		boidInfo[i]->transform.SetLocation(FVector(FMath::RandRange(-500, 500), FMath::RandRange(-500, 500), FMath::RandRange(-500, 500)));
+		BoidInfo[i]->Transform.SetLocation(FVector(FMath::RandRange(-500, 500), FMath::RandRange(-500, 500), FMath::RandRange(-500, 500)));
 
-		boidInfo[i]->meshID = boids->AddInstance(boidInfo[i]->transform);
+		BoidInfo[i]->meshID = BoidInstancedMesh->AddInstance(BoidInfo[i]->Transform);
 
-		boidInfo[i]->velocity = FVector(FMath::RandRange(-minSpeed, maxSpeed));
-		boidInfo[i]->direction = boidInfo[i]->velocity / boidInfo[i]->velocity.Size();
+		BoidInfo[i]->Velocity = FVector(FMath::RandRange(-minSpeed, MaxSpeed));
+		BoidInfo[i]->direction = BoidInfo[i]->Velocity / BoidInfo[i]->Velocity.Size();
 	}
 
 
@@ -38,22 +38,22 @@ void ABoidManager::BeginPlay()
 		FTransform newTransform;
 		FActorSpawnParameters spawnParams;
 
-		myOctant = GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams);
+		RootOctant = GetWorld()->SpawnActor<AOctant>(AOctant::StaticClass(), newTransform, spawnParams);
 
-		myOctant->InitRoot(maxOctreeLevel, octreeIdealBoidCount, 3000, boidInfo);
+		RootOctant->InitRoot(OctreeMaxLevel, OctantIdealBoidCount, 3000, BoidInfo);
 
-		GetWorld()->GetTimerManager().SetTimer(timerHandle, this, &ABoidManager::CalcOctree, octreeTimerInterval, true, 0.0f);
+		GetWorld()->GetTimerManager().SetTimer(OctreeTimerHandle, this, &ABoidManager::CalcOctree, OctreeTimerInterval, true, 0.0f);
 	}
 }
 
 void ABoidManager::CalcOctree()
 {
-	myOctant->KillBranches();
-	myOctant->ConstructTree();
-	myOctant->AssignIDtoEntity();
+	RootOctant->KillBranches();
+	RootOctant->ConstructTree();
+	RootOctant->AssignIDtoEntity();
 
 	if (IsSpatialPartitioningDisplayOn) {
-		myOctant->Display(FColor::Yellow);
+		RootOctant->Display(OctreeDisplayColor);
 	}
 
 }
@@ -63,22 +63,22 @@ void ABoidManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	for (int i = 0; i < boidCount; i++)
+	for (int i = 0; i < BoidCount; i++)
 	{
 		//create threads or run on main
 		if (IsRunningOnMain)
 		{
-			RunFlockTaskOnMain(i, DeltaTime, boidInfo, viewRadius, avoidRadius);
+			RunFlockTaskOnMain(i, DeltaTime, BoidInfo, ViewRadius, AvoidRadius);
 		}
 		else
 		{
-			RunFlockTask(i, DeltaTime, boidInfo, viewRadius, avoidRadius);
+			RunFlockTask(i, DeltaTime, BoidInfo, ViewRadius, AvoidRadius);
 		}
 	}
 
-	for (int i = 0; i < boidCount; i++)
+	for (int i = 0; i < BoidCount; i++)
 	{
-		boidInfo[i]->acceleration = FVector(0);
+		BoidInfo[i]->Acceleration = FVector(0);
 
 		//target seek force CAUSES MASSIVE FRAME DROPS DUE TO GET ACTOR LOCATION
 		//if (boidInfo.target != nullptr) {
@@ -87,36 +87,36 @@ void ABoidManager::Tick(float DeltaTime)
 		//}
 
 		//flocking forces
-		if (boidInfo[i]->numPerceivedFlockmates != 0)
+		if (BoidInfo[i]->numPerceivedFlockmates != 0)
 		{
-			boidInfo[i]->centroid /= boidInfo[i]->numPerceivedFlockmates;
+			BoidInfo[i]->Centroid /= BoidInfo[i]->numPerceivedFlockmates;
 
-			boidInfo[i]->acceleration += GetForceToDirection(boidInfo[i]->avgBoidDir, i) * alignmentWeight;
-			boidInfo[i]->acceleration += GetForceToDirection(boidInfo[i]->centroid - boidInfo[i]->transform.GetLocation(), i) * cohesionWeight;
-			boidInfo[i]->acceleration += GetForceToDirection(boidInfo[i]->avgAvoidDir, i) * seperationWeight;
+			BoidInfo[i]->Acceleration += GetForceToDirection(BoidInfo[i]->AvgBoidDir, i) * alignmentWeight;
+			BoidInfo[i]->Acceleration += GetForceToDirection(BoidInfo[i]->Centroid - BoidInfo[i]->Transform.GetLocation(), i) * cohesionWeight;
+			BoidInfo[i]->Acceleration += GetForceToDirection(BoidInfo[i]->AvgAvoidDir, i) * seperationWeight;
 		}
 
 		//object avoidance
 		if (IsCloseToObject(i))
 		{
-			FVector collisionAvoidForce = GetForceToDirection(GetAvoidDir(i), i) * avoidWeight;
-			boidInfo[i]->acceleration += collisionAvoidForce;
+			FVector collisionAvoidForce = GetForceToDirection(GetAvoidDir(i), i) * AvoidWeight;
+			BoidInfo[i]->Acceleration += collisionAvoidForce;
 		}
 
-		boidInfo[i]->velocity += boidInfo[i]->acceleration * DeltaTime;
-		float speed = boidInfo[i]->velocity.Size();
-		boidInfo[i]->direction = boidInfo[i]->velocity / speed;
-	    speed = FMath::Clamp(speed, minSpeed, maxSpeed);
-		boidInfo[i]->velocity = boidInfo[i]->direction * speed;
+		BoidInfo[i]->Velocity += BoidInfo[i]->Acceleration * DeltaTime;
+		float speed = BoidInfo[i]->Velocity.Size();
+		BoidInfo[i]->direction = BoidInfo[i]->Velocity / speed;
+	    speed = FMath::Clamp(speed, minSpeed, MaxSpeed);
+		BoidInfo[i]->Velocity = BoidInfo[i]->direction * speed;
 
-		boidInfo[i]->transform.SetLocation(boidInfo[i]->transform.GetLocation() + boidInfo[i]->velocity * DeltaTime);
-		boidInfo[i]->transform.SetRotation(UKismetMathLibrary::FindLookAtRotation(boidInfo[i]->transform.GetLocation(), boidInfo[i]->transform.GetLocation() + boidInfo[i]->direction).Quaternion());
+		BoidInfo[i]->Transform.SetLocation(BoidInfo[i]->Transform.GetLocation() + BoidInfo[i]->Velocity * DeltaTime);
+		BoidInfo[i]->Transform.SetRotation(UKismetMathLibrary::FindLookAtRotation(BoidInfo[i]->Transform.GetLocation(), BoidInfo[i]->Transform.GetLocation() + BoidInfo[i]->direction).Quaternion());
 
-		boids->UpdateInstanceTransform(boidInfo[i]->meshID, boidInfo[i]->transform);
+		BoidInstancedMesh->UpdateInstanceTransform(BoidInfo[i]->meshID, BoidInfo[i]->Transform);
 	}
 
 	//boids->ReleasePerInstanceRenderData();
-	boids->MarkRenderStateDirty();
+	BoidInstancedMesh->MarkRenderStateDirty();
 }
 
 bool ABoidManager::IsCloseToObject(int index)
@@ -126,7 +126,7 @@ bool ABoidManager::IsCloseToObject(int index)
 
 	TArray<AActor*> empty;
 
-	if (UKismetSystemLibrary::SphereTraceSingle(GetWorld(), boidInfo[index]->transform.GetLocation(), boidInfo[index]->transform.GetLocation() + boidInfo[index]->direction * collisionCheckDistance,
+	if (UKismetSystemLibrary::SphereTraceSingle(GetWorld(), BoidInfo[index]->Transform.GetLocation(), BoidInfo[index]->Transform.GetLocation() + BoidInfo[index]->direction * collisionCheckDistance,
 		boundsRadius, traceChannel, false, empty, EDrawDebugTrace::None, hit, true))
 	{
 		return true;
@@ -137,29 +137,29 @@ bool ABoidManager::IsCloseToObject(int index)
 
 FVector ABoidManager::GetAvoidDir(int index)
 {
-	for (int i = 0; i < points.Num(); i++)
+	for (int i = 0; i < Points.Num(); i++)
 	{
 		//rotate the point torwards forward
-		FVector viewDirection = UKismetMathLibrary::TransformDirection(boidInfo[index]->transform, points[i]);
+		FVector viewDirection = UKismetMathLibrary::TransformDirection(BoidInfo[index]->Transform, Points[i]);
 
 		FHitResult hit;
 
 		TArray<AActor*> empty;
 
-		if (!UKismetSystemLibrary::SphereTraceSingle(GetWorld(), boidInfo[index]->transform.GetLocation(), boidInfo[index]->transform.GetLocation() + viewDirection * collisionCheckDistance,
+		if (!UKismetSystemLibrary::SphereTraceSingle(GetWorld(), BoidInfo[index]->Transform.GetLocation(), BoidInfo[index]->Transform.GetLocation() + viewDirection * collisionCheckDistance,
 			boundsRadius, traceChannel, false, empty, EDrawDebugTrace::None, hit, true))
 		{
 			return viewDirection;
 		}
 	}
 
-	return boidInfo[index]->direction;
+	return BoidInfo[index]->direction;
 }
 
 FVector ABoidManager::GetForceToDirection(FVector a_direction, int index)
 {
-	FVector direction = (a_direction.GetSafeNormal() * maxSpeed) - boidInfo[index]->velocity;
-	return direction.GetClampedToMaxSize(maxForce);
+	FVector direction = (a_direction.GetSafeNormal() * MaxSpeed) - BoidInfo[index]->Velocity;
+	return direction.GetClampedToMaxSize(MaxForce);
 }
 
 
@@ -169,9 +169,9 @@ void ABoidManager::CalcPoints()
 	float goldenRatio = (1 + FMath::Sqrt(5)) / 2;
 	float angleIncrement = PI * 2 * goldenRatio;
 
-	for (int i = 0; i < numViewDirections; i++)
+	for (int i = 0; i < ViewDirectionCount; i++)
 	{
-		float t = (float)i / numViewDirections;
+		float t = (float)i / ViewDirectionCount;
 		float inclination = FMath::Acos(1 - 2 * t);
 		float azimuth = angleIncrement * i;
 
@@ -185,7 +185,7 @@ void ABoidManager::CalcPoints()
 		newTransform.SetRotation(newTransform.GetRotation() * deltaRotate.MakeFromEuler(FVector(0, -90, 0)));
 		FVector viewDirection = UKismetMathLibrary::TransformDirection(newTransform, FVector(x, y, z));
 
-		points.Add(viewDirection);
+		Points.Add(viewDirection);
 	}
 }
 
@@ -205,11 +205,11 @@ void ABoidManager::RunFlockTaskOnMain(int a_boidIndex, float a_deltaTime, TArray
 
 BoidWorker::BoidWorker(int a_boidIndex, float a_deltaTime, TArray<FBoidInfo*> a_boidInfo, float a_viewRadius, float a_avoidRadius)
 {
-	index = a_boidIndex;
-	deltaTime = a_deltaTime;
-	boidsInfo = a_boidInfo;
-	viewRadius = a_viewRadius;
-	avoidRadius = a_avoidRadius;
+	Index = a_boidIndex;
+	DeltaTime = a_deltaTime;
+	BoidInfo = a_boidInfo;
+	ViewRadius = a_viewRadius;
+	AvoidRadius = a_avoidRadius;
 }
 
 BoidWorker::~BoidWorker()
@@ -219,29 +219,29 @@ BoidWorker::~BoidWorker()
 
 void BoidWorker::DoWork()
 {
-	boidsInfo[index]->numPerceivedFlockmates = 0;
-	boidsInfo[index]->avgBoidDir = FVector(0.0f);
-	boidsInfo[index]->avgAvoidDir = FVector(0.0f);
-	boidsInfo[index]->centroid = FVector(0.0f);
+	BoidInfo[Index]->numPerceivedFlockmates = 0;
+	BoidInfo[Index]->AvgBoidDir = FVector(0.0f);
+	BoidInfo[Index]->AvgAvoidDir = FVector(0.0f);
+	BoidInfo[Index]->Centroid = FVector(0.0f);
 	
-	for (int i = 0; i < boidsInfo.Num(); i++)
+	for (int i = 0; i < BoidInfo.Num(); i++)
 	{
-		FBoidInfo* otherBoid = boidsInfo[i];
+		FBoidInfo* otherBoid = BoidInfo[i];
 	
-		if (index != i && boidsInfo[index]->dimensionID == otherBoid->dimensionID)
+		if (Index != i && BoidInfo[Index]->dimensionID == otherBoid->dimensionID)
 		{
-			FVector offset = otherBoid->transform.GetLocation() - boidsInfo[index]->transform.GetLocation();
+			FVector offset = otherBoid->Transform.GetLocation() - BoidInfo[Index]->Transform.GetLocation();
 			float sqrDst = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z;
 	
-			if (sqrDst < viewRadius * viewRadius)
+			if (sqrDst < ViewRadius * ViewRadius)
 			{
-				boidsInfo[index]->numPerceivedFlockmates++;
-				boidsInfo[index]->avgBoidDir += otherBoid->direction;
-				boidsInfo[index]->centroid += otherBoid->transform.GetLocation();
+				BoidInfo[Index]->numPerceivedFlockmates++;
+				BoidInfo[Index]->AvgBoidDir += otherBoid->direction;
+				BoidInfo[Index]->Centroid += otherBoid->Transform.GetLocation();
 	
-				if (sqrDst < avoidRadius * avoidRadius)
+				if (sqrDst < AvoidRadius * AvoidRadius)
 				{
-					boidsInfo[index]->avgAvoidDir -= offset / sqrDst;
+					BoidInfo[Index]->AvgAvoidDir -= offset / sqrDst;
 				}
 			}
 		}

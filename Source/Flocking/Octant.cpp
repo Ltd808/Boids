@@ -149,8 +149,8 @@ bool AOctant::IsColliding(int index)
 	if (index >= boids.Num()) { return false; }
 
 	//get bounds
-	FVector entityMin = boids[index]->transform.GetLocation() - FVector(25, 25, 25);
-	FVector entityMax = boids[index]->transform.GetLocation() + FVector(25, 25, 25);
+	FVector entityMin = boids[index]->Transform.GetLocation() - FVector(25, 25, 25);
+	FVector entityMax = boids[index]->Transform.GetLocation() + FVector(25, 25, 25);
 
 	//AABB
 	return (min.X <= entityMax.X && max.X >= entityMin.X) &&
